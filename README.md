@@ -166,3 +166,9 @@ M8Bs are infrastructure, not an end-product. We can't wait to see what you'll co
  - Use m(8)b results to seed other location searches/lookups (GPS orbital prediction, low-resolution geofence checks, bounding for queries to off-board APIs)
  - Use m(8)b results to improve privacy: don't send probe requests (and leak information about yourself) for fixed wireless systems that aren't nearby
  - Define custom m(8)bs for specific applications or locations. This means you can verify and limit data as desired to deter malicious interference, minimize storage requirements, and develop networks of trusted data without WiGLE or any other provider as an intermediary.
+
+
+## Artifacts
+From time to time we may release partial extracts from the wigle dataset:
+- https://github.com/wiglenet/m8binary/releases/tag/v1.0-aleph
+
