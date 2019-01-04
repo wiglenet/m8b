@@ -1,4 +1,4 @@
-package net.wigle;
+package net.wigle.m8b;
 
 import java.io.File;
 import java.io.InputStream;

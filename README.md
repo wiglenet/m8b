@@ -134,14 +134,30 @@ To decode: read the header for parameters, and read the records to reconstruct t
 .➑  (\u2791)
 
 ## How to build
+### By hand
 ```
-m8b$ cd src
-m8b/src$ javac net/wigle/m8b.java
+m8b$ cd src/main/java
+java$ javac net/wigle/m8b/m8b.java
+```
+### With Maven
+```
+m8b$
+mvn clean compile install
 ```
 
 ## How to use
+### By hand
 ```
-m8b/src$ java -cp . net.wigle.m8b
+m8b/src/main/java$ java -cp . net.wigle.m8b.m8b
+```
+
+### From JAR
+```
+m8b/src$ java -jar target/m8b-1.0-SNAPSHOT.jar    # or your tag
+```
+
+### In Either Case
+```
 m8b generate observation-filename m8b-filename slice-bits [-t]
 m8b stage observation-filename stage-location/ [-t]
 m8b restage observation-filename stage-location/ [-t]
