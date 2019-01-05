@@ -1,4 +1,4 @@
-package net.wigle.geodesy;
+package net.wigle.m8b.geodesy;
 
 // port from https://github.com/chrisveness/geodesy/blob/master/utm.js 
 // stupid helpful javascript -_-

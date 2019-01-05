@@ -1,4 +1,4 @@
-package net.wigle.siphash;
+package net.wigle.m8b.siphash;
 
 /**
  * from https://github.com/emboss/siphash-java
