@@ -1,4 +1,4 @@
-package net.wigle;
+package net.wigle.m8b;
 
 import java.io.File;
 import java.io.InputStream;
@@ -31,10 +31,10 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
-import net.wigle.siphash.SipHash;
-import net.wigle.siphash.SipKey;
-import net.wigle.geodesy.utm;
-import net.wigle.geodesy.mgrs;
+import net.wigle.m8b.siphash.SipHash;
+import net.wigle.m8b.siphash.SipKey;
+import net.wigle.m8b.geodesy.utm;
+import net.wigle.m8b.geodesy.mgrs;
 
 /* 
  * Copyright (c) 2018, Hugh Kennedy, Robert Hagemann, Andrew Carra
