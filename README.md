@@ -148,33 +148,60 @@ mvn clean compile install
 ## How to use
 ### By hand
 ```
-m8b/src/main/java$ java -cp . net.wigle.m8b.m8b
+m8b/src/main/java$ java -cp . net.wigle.m8b.m8b   # as '$m8b' below
 ```
 
 ### From JAR
 ```
-m8b/src$ java -jar target/m8b-1.0-SNAPSHOT.jar    # or your tag
+m8b/src$ java -jar target/m8b-1.0-SNAPSHOT.jar    # or your tag as '$m8b' below
 ```
 
 ### In Either Case
-```
-m8b generate observation-filename m8b-filename slice-bits [-t]
-m8b stage observation-filename stage-location/ [-t]
-m8b restage observation-filename stage-location/ [-t]
-m8b score stage-location/
-m8b score2 stage-location/
-m8b reduce stage-location/ reduce-location/ slice-bits
-m8b compact stage-location/
-m8b combine reduce-location/ m8b-filename slice-bits
-m8b dumpi intermediate-filename
-m8b query m8b-filename mac1 [... macN]
-m8b scan m8b-filename mac1 [... macN]
+Magic (8) Balls are created using sets of netid-coordinate tuples as mentioned above. The default file format is pipe-delimited (tabs also supported via commandline option):
 
-# query an (8) ball
-m8b/src$ java -cp . net.wigle.m8b scan tb_v1.m8b.gz DE:86:2D:62:2A:45 DE:96:CD:80:35:0C DA:FD:A9:3A:EA:15
+```
+netid1|latitude1|longitude1
+netid2|latitude2|longitude2
+...
+```
+
+These files can be hashed into query-able m8b oracles, but you must also select your number of "slice-bits" - how lossy your compression will be / how large the artifact will be. WiGLE's reference implementations are released with a slice-bits of `0x20` - `32` bits.
+
+```
+# to CREATE an (8) ball oracle using disk based temp-space:
+mkdir ./staging 				# staging temp dir; 'staging' used as an example
+mkdir ./reduced					# reduction temp dir; 'reduced' used as an example
+$m8b restage <observation-filename> ./staging/ && \
+	$m8b reduce ./staging/ ./reduced/ <slice-bits> && \
+	$m8b combine ./reduced/ <m8b-filename> <slice-bits>
+
+# 'generate' is the faster, more memory-intensive equivalent of above.
+# you must set -Xmx and -Xms java options based on your input size for this to work
+$m8b generate <observation-filename> <m8b-filename> <slice-bits>
+
+# to QUERY an (8) ball oracle
+$m8b/src$ java -cp . net.wigle.m8b scan tb_v1.m8b.gz DE:86:2D:62:2A:45 DE:96:CD:80:35:0C DA:FD:A9:3A:EA:15
  (and so on)
+
+# all commands and options:
+$m8b stage observation-filename stage-location/ [-t]
+$m8b restage observation-filename stage-location/ [-t]
+$m8b score stage-location/
+$m8b score2 stage-location/
+$m8b reduce stage-location/ reduce-location/ slice-bits
+$m8b compact stage-location/
+$m8b combine reduce-location/ m8b-filename slice-bits
+$m8b dumpi intermediate-filename
+$m8b query m8b-filename mac1 [... macN]
+$m8b scan m8b-filename mac1 [... macN]
+
+# ('-t' option for tab-delimited source files, default is '|' delimited)
+
 ```
 find the highest number of hits for an MGRS coordinate, that might be where those addresses are!
+
+### WiGLE Wireless
+The [WiGLE Wireless](https://github.com/wiglenet/wigle-wifi-wardriving) open source application for Android can export your observations as a shareable Magic (8) Ball if you want to use or transmit your observations to others. This is particularly useful should you intend to conduct an area survey upon which others (who trust you) can rely. Signing, securely transmitting, and sharing Magic (8) Balls is currently beyond the scope of the project, but is a direction for future exploration. You can obtain a verified copy of WiGLE Wireless through the Android [Play Store](https://play.google.com/store/apps/details?id=net.wigle.wigleandroid) or build your own from source. Apple's policy prohibits equivalent network detection packages from being released via the Apple Store at the time of publication.
 
 ## Potential Applications
 M8Bs are infrastructure, not an end-product. We can't wait to see what you'll come up with. That being said, we see a few primary applications immediately:
