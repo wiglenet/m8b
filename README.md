@@ -180,8 +180,8 @@ $m8b restage <observation-filename> ./staging/ && \
 $m8b generate <observation-filename> <m8b-filename> <slice-bits>
 
 # to QUERY an (8) ball oracle
-$m8b/src$ java -cp . net.wigle.m8b scan tb_v1.m8b.gz DE:86:2D:62:2A:45 DE:96:CD:80:35:0C DA:FD:A9:3A:EA:15
- (and so on)
+$m8b scan tb_v1.m8b.gz DE:86:2D:62:2A:45 DE:96:CD:80:35:0C DA:FD:A9:3A:EA:15
+# (and so on...)
 
 # all commands and options:
 $m8b stage observation-filename stage-location/ [-t]
