@@ -1076,21 +1076,26 @@ public final class m8b {
 	public int compare(byte[] o1, byte[] o2) {
 
 	    // can't do it all bytewise
-	    int o1k = (int)(((o1[3]<<24)&0xff000000)|((o1[2]<<16)&0x00ff0000)|((o1[1]<<8)&0x00ff00)|(o1[0] & 0x0ff));
-	    int o2k = (int)(((o2[3]<<24)&0xff000000)|((o2[2]<<16)&0x00ff0000)|((o2[1]<<8)&0x00ff00)|(o2[0] & 0x0ff));
+	    long o1k = (int)(((o1[3]<<24)&0xff000000)|((o1[2]<<16)&0x00ff0000)|((o1[1]<<8)&0x00ff00)|(o1[0] & 0x0ff));
+	    long o2k = (int)(((o2[3]<<24)&0xff000000)|((o2[2]<<16)&0x00ff0000)|((o2[1]<<8)&0x00ff00)|(o2[0] & 0x0ff));
 
-	    int diff=o1k-o2k;
+	    long diff=o1k-o2k;
 	    
 	    if ( diff == 0 ) { // same intk, do pairwise eval
 	    for ( int i = 4; i < 13; i++ ) {
 		diff = (o1[i]-o2[i]);
 		if ( diff != 0 ) {
-		    return diff;
+		    return (int)diff;
 		}
 	    }
 	    }
 	    
-	    return diff;
+            if (diff < 0) {
+		return -1;
+	    } else if (diff > 0){
+		return 1;
+	    }
+	    return (int)diff;
 	}
     }
 
