@@ -213,5 +213,9 @@ M8Bs are infrastructure, not an end-product. We can't wait to see what you'll co
 
 ## Artifacts
 From time to time we may release partial extracts from the wigle dataset:
+
+- https://github.com/wiglenet/m8binary/releases/tag/v1.1-beth
+
+### Previous Releases
 - https://github.com/wiglenet/m8binary/releases/tag/v1.0-aleph
 
