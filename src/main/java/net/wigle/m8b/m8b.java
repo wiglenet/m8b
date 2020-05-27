@@ -153,6 +153,13 @@ public final class m8b {
 	    scan(argv[1],Arrays.copyOfRange(argv,2,argv.length));
 	    break;
 	}
+   	case "unf": {
+	    System.out.println("do unified normal form read "+argv[1]+" stage "+argv[2]+" write "+argv[3]);
+    	    boolean tabs = (argv.length > 4 && "-t".equals(argv[4]));
+
+	    unf(argv[1],argv[2],argv[3],tabs);
+	    break;
+	}
 
 	case "dumpi":{
 	    System.out.println("do dump intermediate read "+argv[1]);
@@ -551,6 +558,231 @@ public final class m8b {
 
 
     }
+
+        /**
+     * combine all creation into one action, avoiding intermediate commands 
+     *
+     * read mac|lat|lon per line text file (skipping first header line)
+     * convert into multiple file intermediate m8b data at stageLoc
+     * no slicing of ids, reduces to ~30% of source data size.
+     * 
+     * unf splits fromFile into 256 files, by unsliced hash, and sort/reduces them, then combines them into a final m8b 
+     */
+    private static void unf(String fromFile, String stageLoc, String toFile, boolean tabs) throws Exception {
+
+	Charset utf8  = Charset.forName("UTF-8");
+	SeekableByteChannel outc = Files.newByteChannel(new File(toFile).toPath(), EnumSet.of(StandardOpenOption.CREATE_NEW,StandardOpenOption.WRITE));//,);
+
+	int slicebits =32;
+         
+        ByteBuffer bbc = ByteBuffer.allocate(4096).order(ByteOrder.LITTLE_ENDIAN); // screw you, java
+    
+	// write header
+	bbc.put("MJG\n".getBytes(utf8)); // magic number
+	bbc.put("2\n".getBytes(utf8)); // version
+	bbc.put("SIP-2-4\n".getBytes(utf8)); // hash
+	bbc.put(String.format("%02x\n",slicebits).getBytes(utf8)); // slice bits (hex)
+	bbc.put("MGRS-1000\n".getBytes(utf8)); // coords
+	bbc.put("4\n".getBytes(utf8)); // id size in bytes (hex)
+	bbc.put("9\n".getBytes(utf8)); // coords size in bytes (hex)
+        // this string will always be at the same fixed offset: and will be replaced at the end
+	int pos = bbc.position();
+	bbc.put(String.format("%08x\n",0).getBytes(utf8)); // record count (hex)
+
+	bbc.flip();
+	while (bbc.hasRemaining()){
+	    outc.write(bbc);
+	}
+
+
+	ReadableByteChannel inc = Files.newByteChannel(new File(fromFile).toPath(), EnumSet.of(StandardOpenOption.READ));//,);
+
+	if (fromFile.endsWith(".gz") || fromFile.endsWith(".GZ")) {// there's got to be a better way!
+	    InputStream is = Channels.newInputStream(inc);
+	    GZIPInputStream gis = new GZIPInputStream(is);
+	    inc = Channels.newChannel(gis);
+	}
+	
+
+	Stream<String> lines = (new BufferedReader(Channels.newReader(inc,utf8.newDecoder(),-1)).lines()).skip(1);//Files.lines(new File(fromFile).toPath()).skip(1);
+
+	// just zerokey it. we're not trying to avoid collisions.
+	SipKey sipkey = new SipKey(new byte[16]);
+	byte[] macbytes = new byte[6];
+
+
+	ByteBuffer[] bb = new ByteBuffer[256];
+	SeekableByteChannel[] out = new SeekableByteChannel[bb.length];
+
+	Path[] stage = new Path[bb.length];
+
+	for (int i=0;i<bb.length;i++) {
+	    bb[i] = ByteBuffer.allocate(4096).order(ByteOrder.LITTLE_ENDIAN);
+	    stage[i] = new File(stageLoc,"stage_"+i).toPath();
+	    out[i] = Files.newByteChannel(stage[i], EnumSet.of(StandardOpenOption.CREATE_NEW,StandardOpenOption.WRITE));
+	}
+	
+	int non_utm=0;
+
+	int records = 0;
+	int[] rslice = new int[bb.length];
+
+	char sep = tabs ? '\t' : '|';
+	
+	int recordsize = 4+9;
+	byte[] mstr = new byte[9];
+        for (Iterator<String> it = lines.iterator(); it.hasNext(); )
+        {
+
+	    //bssid|bestlat|bestlon
+	    //8e:15:44:60:50:ac|40.00900289|-75.21358834
+	    
+	    String line = it.next();
+
+	    int b1 = line.indexOf(sep);
+	    int b2 = line.indexOf(sep,b1+1);
+
+	    String latstr = line.substring(b1+1,b2);
+	    String lonstr = line.substring(b2+1);
+
+	    double lat = Double.parseDouble(latstr);
+	    double lon = Double.parseDouble(lonstr);
+
+	    if (!(-80<=lat && lat<=84)) {
+		non_utm++;
+		continue;
+	    }
+
+	    mgrs m = mgrs.fromUtm(utm.fromLatLon(lat,lon));
+
+            String slice2 = line.substring(0,17);
+	    int key = extractIntKeyFrom(slice2,macbytes,sipkey,32);
+
+	    int idx = (int)((key >> 24) & 0x0ff);
+
+	    if ( bb[idx].remaining() < recordsize ) {
+		bb[idx].flip();
+		while (bb[idx].hasRemaining()){
+		    out[idx].write(bb[idx]);
+		}
+		bb[idx].clear();
+	    }
+	    m.populateBytes(mstr);
+	    bb[idx].putInt(key).put(mstr);
+	    records++;
+	    rslice[idx]++;
+	    if (records % 1_000_000 == 0){
+		System.out.print(".");
+	    }
+	}
+
+	int max = -1;
+	// done. do last write/flush
+	for (int i=0;i<bb.length;i++) {
+	    bb[i].flip();
+	    while (bb[i].hasRemaining()){
+		out[i].write(bb[i]);
+	    }
+	    bb[i].clear();
+	    
+	    out[i].close();
+
+	    if (rslice[i] > max){
+		max = rslice[i];
+	    }
+	}
+	
+	System.out.println("\nthere were "+non_utm+" out of bounds records, and a total of "+records+" written "+(records*recordsize) +" bytes");
+	for(int i = 0; i< rslice.length; i++){
+	    System.out.println(i+" => "+rslice[i]);
+	}
+	
+	ByteBuffer ib = ByteBuffer.allocate(4096).order(ByteOrder.LITTLE_ENDIAN); // screw you, java
+
+	// should we bound this max? secondary option is multifile sortmerge.
+	System.out.println("max: "+max+", allocating ~"+(max*(recordsize+8))+"b");
+	byte[][] entries = new byte[max][];
+	for ( int i = 0;i<entries.length;i++){
+	    entries[i] = new byte[recordsize];
+	}
+	int dups[] = new int[stage.length];
+
+
+	
+	records = 0;
+
+	for (int i =0;i<stage.length;i++ ) {
+	    		System.out.print(".");
+
+	    Path entry = stage[i];
+	    SeekableByteChannel in = Files.newByteChannel(entry, EnumSet.of(StandardOpenOption.READ));//,);
+	    // 
+	    int read = in.read(ib);
+	    int idx=0;
+	    while (read > 0) {
+		ib.flip();
+		
+		while ( ib.remaining() > recordsize ) {
+		    ib.get(entries[idx],0,recordsize); // guaranteed to have recordsize from the conditional and bytebuffer.get will fill what is available.
+		    idx++;
+		}
+		ib.compact(); // partial reads.
+		read = in.read(ib);
+	    }
+	    // sort entries by keybits from 0,idx
+	    Arrays.sort(entries,0,idx,CMP);
+
+	    ib.clear();
+	    int lastwrite=-1;
+	    for ( int j = 0; j < idx; j++ ) {
+		if (ib.remaining() < recordsize ) {
+		    ib.flip();
+		    while (ib.hasRemaining()){
+			outc.write(ib);
+		    }
+		    ib.clear();
+		}
+		// suppress dups
+		if ( lastwrite >= 0 ) {
+		    if (CMP.compare(entries[lastwrite],entries[j]) == 0) {
+			dups[i]++;
+			continue;
+		    }
+		}
+
+		records++;
+		
+		ib.put(entries[j],0,recordsize);
+		lastwrite = j;
+	    }
+	    // done. do last write and flush
+	    ib.flip();
+	    while (ib.hasRemaining()){
+		outc.write(ib);
+	    }
+	    ib.clear();
+	}
+	
+	System.out.println("\ndups suppressed: "+Arrays.stream(dups).mapToObj(x->Integer.toString(x)).collect(Collectors.joining(", ")));
+
+	System.out.println("total records:"+records);
+
+        // seek to 32 and write out the record count
+        bbc.clear();
+        // this string will always be at offset 32: and will be replaced at the end
+	bbc.put(String.format("%08x\n",records).getBytes(utf8)); // record count (hex)
+
+	bbc.flip();
+
+	outc.position(pos);
+	
+	while (bbc.hasRemaining()){
+	    outc.write(bbc);
+	}
+
+	outc.close();
+    }
+
 
     
     /**
@@ -1076,8 +1308,8 @@ public final class m8b {
 	public int compare(byte[] o1, byte[] o2) {
 
 	    // can't do it all bytewise
-	    long o1k = (int)(((o1[3]<<24)&0xff000000)|((o1[2]<<16)&0x00ff0000)|((o1[1]<<8)&0x00ff00)|(o1[0] & 0x0ff));
-	    long o2k = (int)(((o2[3]<<24)&0xff000000)|((o2[2]<<16)&0x00ff0000)|((o2[1]<<8)&0x00ff00)|(o2[0] & 0x0ff));
+	    long o1k = (long)((((long)o1[3]<<24)&0x0ff000000L)|((o1[2]<<16)&0x00ff0000)|((o1[1]<<8)&0x00ff00)|(o1[0] & 0x0ff));
+	    long o2k = (long)((((long)o2[3]<<24)&0x0ff000000L)|((o2[2]<<16)&0x00ff0000)|((o2[1]<<8)&0x00ff00)|(o2[0] & 0x0ff));
 
 	    long diff=o1k-o2k;
 	    
@@ -1535,15 +1767,6 @@ public final class m8b {
 	    }
 	    while ( bb.remaining() > recordsize ) {
 		int id =  bb.getInt();
-		if ( id < lastid ) {
-		    System.out.println(" disorder! read "+id+" < "+lastid);
-		}
-		if (id > maxid ) {
-		    System.out.println(id +" >  "+maxid);
-		    // nothing more to see folks,
-		    done = true;
-		    break;
-		}
 		Integer kslice2 = null;
 		if ( id == lastid ) { // same as it was
 		    // are we still in a key range?
