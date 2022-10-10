@@ -2,6 +2,7 @@ package net.wigle.m8b;
 
 import java.io.File;
 import java.io.InputStream;
+import java.io.BufferedReader;
 import java.nio.charset.Charset;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
